@@ -73,6 +73,7 @@ public class PublicController {
 
     @PostMapping("/login")
     public ResponseEntity<?> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletResponse response) {
+        try {
             boolean emailExist = usersRepo.existsByEmail(userLoginRequest.getEmail());
             if (!emailExist) {
                 return new ResponseEntity<>("Please enter a registered email", HttpStatus.BAD_REQUEST);
@@ -101,6 +102,10 @@ public class PublicController {
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
             return ResponseEntity.ok(new AuthResponse(jwtAccessToken, null, true));
+
+        } catch (AuthenticationException e) {
+            return new ResponseEntity<>("Please enter correct password.", HttpStatus.NOT_FOUND);
+        }
     }
 @PostMapping("/refreshtoken")
 public ResponseEntity<AuthResponse> refreshToken(@RequestBody AuthResponse authResponse){
