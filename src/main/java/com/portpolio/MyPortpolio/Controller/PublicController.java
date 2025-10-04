@@ -84,7 +84,7 @@ public class PublicController {
                         new UsernamePasswordAuthenticationToken(userLoginRequest.getEmail(), userLoginRequest.getPassword())
                 );
             } catch (AuthenticationException e) {
-                return new ResponseEntity<>("Incorrect Password, Please enter correct password", HttpStatus.UNAUTHORIZED);
+                throw new RuntimeException(e);
             }
 
             String jwtAccessToken = jwtUtil.generateToken(userLoginRequest.getEmail());
