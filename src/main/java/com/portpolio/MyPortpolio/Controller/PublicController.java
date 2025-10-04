@@ -130,4 +130,8 @@ public ResponseEntity<AuthResponse> refreshToken(@RequestBody AuthResponse authR
         return ResponseEntity.ok(storageRequest);
     }
 
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("ok");
+    }
 }

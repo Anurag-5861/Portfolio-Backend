@@ -47,7 +47,7 @@ public class Config {
             http    .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                     .csrf(csrf->csrf.disable())
                     .authorizeHttpRequests(auth->auth
-                            .requestMatchers("/my-portfolio/login","/my-portfolio/signup","/my-portfolio/storage").permitAll()
+                            .requestMatchers("/my-portfolio/login","/my-portfolio/signup","/my-portfolio/storage","/my-portfolio/health").permitAll()
                             .anyRequest()
                             .authenticated())
                     .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
