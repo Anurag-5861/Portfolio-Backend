@@ -1,0 +1,14 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # ⏰ runs every 10 minutes
+  workflow_dispatch:          # allows manual run too
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render app
+        run: |
+          curl -fsS -o /dev/null "https://portfolio-backend-358b.onrender.com/my-portfolio" || echo "Ping failed"
