@@ -187,4 +187,25 @@ public ResponseEntity<?> userLogin(@RequestBody UserLoginRequest userLoginReques
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("ok");
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletResponse response, @CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        if (refreshToken != null) {
+            // Remove refresh token from Redis
+            redisTemplate.delete(refreshToken);
+
+            // Overwrite the cookie with empty value and 0 max age
+            ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
+                    .httpOnly(true)
+                    .secure(true) // same as your login
+                    .path("/")
+                    .maxAge(0) // delete cookie
+                    .sameSite("Strict")
+                    .build();
+
+            response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
+        }
+
+        return ResponseEntity.ok("Logged out successfully");
+    }
 }
