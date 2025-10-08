@@ -71,58 +71,111 @@ public class PublicController {
             return ResponseEntity.ok("User Registered");
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<?> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletResponse response) {
-        try {
-            boolean emailExist = usersRepo.existsByEmail(userLoginRequest.getEmail());
-            if (!emailExist) {
-                return new ResponseEntity<>("Please enter a registered email", HttpStatus.BAD_REQUEST);
-            }
-
-            try {
-                authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(userLoginRequest.getEmail(), userLoginRequest.getPassword())
-                );
-            } catch (AuthenticationException e) {
-                throw new RuntimeException(e);
-            }
-
-            String jwtAccessToken = jwtUtil.generateToken(userLoginRequest.getEmail());
-            String refreshToken = jwtUtil.generateRefreshToken(userLoginRequest.getEmail());
-
-            redisTemplate.opsForValue().set(refreshToken, userLoginRequest.getEmail(), Duration.ofDays(7));
-
-            ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
-                    .httpOnly(true)
-                    .secure(false)
-                    .path("/")
-                    .maxAge(Duration.ofDays(7))
-                    .sameSite("Strict")
-                    .build();
-            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-
-            return ResponseEntity.ok(new AuthResponse(jwtAccessToken, null, true));
-
-        } catch (AuthenticationException e) {
-            return new ResponseEntity<>("Please enter correct password.", HttpStatus.NOT_FOUND);
+//    @PostMapping("/login")
+//    public ResponseEntity<?> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletResponse response) {
+//        try {
+//            boolean emailExist = usersRepo.existsByEmail(userLoginRequest.getEmail());
+//            if (!emailExist) {
+//                return new ResponseEntity<>("Please enter a registered email", HttpStatus.BAD_REQUEST);
+//            }
+//
+//            try {
+//                authenticationManager.authenticate(
+//                        new UsernamePasswordAuthenticationToken(userLoginRequest.getEmail(), userLoginRequest.getPassword())
+//                );
+//            } catch (AuthenticationException e) {
+//                throw new RuntimeException(e);
+//            }
+//
+//            String jwtAccessToken = jwtUtil.generateToken(userLoginRequest.getEmail());
+//            String refreshToken = jwtUtil.generateRefreshToken(userLoginRequest.getEmail());
+//
+//            redisTemplate.opsForValue().set(refreshToken, userLoginRequest.getEmail(), Duration.ofDays(7));
+//
+//            ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+//                    .httpOnly(true)
+//                    .secure(false)
+//                    .path("/")
+//                    .maxAge(Duration.ofDays(7))
+//                    .sameSite("Strict")
+//                    .build();
+//            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+//
+//            return ResponseEntity.ok(new AuthResponse(jwtAccessToken, null, true));
+//
+//        } catch (AuthenticationException e) {
+//            return new ResponseEntity<>("Please enter correct password.", HttpStatus.NOT_FOUND);
+//        }
+//    }
+//@PostMapping("/refreshtoken")
+//public ResponseEntity<AuthResponse> refreshToken(@RequestBody AuthResponse authResponse){
+//    String email = redisTemplate.opsForValue().get(authResponse.getRefreshToken());
+//
+//    if(email == null || !jwtUtil.validateToken(authResponse.getRefreshToken(), email)){
+//        return new ResponseEntity<>(HttpStatus.UNAUTHORIZED); // 401 instead of 404
+//    }
+//
+//    String newAccessToken = jwtUtil.generateToken(email);
+//    AuthResponse response = new AuthResponse();
+//    response.setAccessJWT(newAccessToken);
+//    response.setRefreshToken(authResponse.getRefreshToken());
+//    response.setSuccess(true);
+//
+//    return ResponseEntity.ok(response);
+//}
+@PostMapping("/login")
+public ResponseEntity<?> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletResponse response) {
+    try {
+        boolean emailExist = usersRepo.existsByEmail(userLoginRequest.getEmail());
+        if (!emailExist) {
+            return new ResponseEntity<>("Please enter a registered email", HttpStatus.BAD_REQUEST);
         }
+
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(userLoginRequest.getEmail(), userLoginRequest.getPassword())
+        );
+
+        String jwtAccessToken = jwtUtil.generateToken(userLoginRequest.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(userLoginRequest.getEmail());
+
+        // Store refresh token securely (Redis = good choice)
+        redisTemplate.opsForValue().set(refreshToken, userLoginRequest.getEmail(), Duration.ofDays(7));
+
+        // ✅ HttpOnly + Secure cookie (for production, use secure(true))
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(true) // ✅ true in production
+                .path("/")
+                .maxAge(Duration.ofDays(7))
+                .sameSite("Strict")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        // Return only access token
+        return ResponseEntity.ok(new AuthResponse(jwtAccessToken, null, true));
+
+    } catch (AuthenticationException e) {
+        return new ResponseEntity<>("Please enter correct password.", HttpStatus.UNAUTHORIZED);
     }
-@PostMapping("/refreshtoken")
-public ResponseEntity<AuthResponse> refreshToken(@RequestBody AuthResponse authResponse){
-    String email = redisTemplate.opsForValue().get(authResponse.getRefreshToken());
-
-    if(email == null || !jwtUtil.validateToken(authResponse.getRefreshToken(), email)){
-        return new ResponseEntity<>(HttpStatus.UNAUTHORIZED); // 401 instead of 404
-    }
-
-    String newAccessToken = jwtUtil.generateToken(email);
-    AuthResponse response = new AuthResponse();
-    response.setAccessJWT(newAccessToken);
-    response.setRefreshToken(authResponse.getRefreshToken());
-    response.setSuccess(true);
-
-    return ResponseEntity.ok(response);
 }
+    @PostMapping("/refreshtoken")
+    public ResponseEntity<AuthResponse> refreshToken(@CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        if (refreshToken == null) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        String email = redisTemplate.opsForValue().get(refreshToken);
+        if (email == null || !jwtUtil.validateToken(refreshToken, email)) {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        String newAccessToken = jwtUtil.generateToken(email);
+        AuthResponse response = new AuthResponse();
+        response.setAccessJWT(newAccessToken);
+        response.setSuccess(true);
+
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/storage")
     public ResponseEntity<StorageRequest> storageUrls(){
